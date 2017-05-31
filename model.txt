@@ -1,0 +1,44 @@
+model {
+   for (i in 1:Npolls) {
+      # Data are separate polls for Leave and Remain voters
+      # Record the number of voters who declare intention to vote for party p=1,...,P in poll i=1,...,Npolls
+      y[i,1:P] ~ dmulti(pi[(ref[i]+1),1:P],N[i])
+   }
+   for (j in 1:2) {
+      # j=1=Leavers; j=2=Remainers
+      for (p in 1:P) {
+         pi[j,p] <- phi[j,p]/sum(phi[j,])
+         # alpha = party-specific 'Leave' effect, while beta = party-specific 'Remain' effect
+         log(phi[j,p]) <- alpha[p]+beta[p]*(j-1)
+         # 'Relative risk' for party p among EU referendum voters of class j (compared to 2015 election share of votes)
+         rho[j,p] <- pi[j,p]/pi15[p]
+      }
+   }
+########################################################################################################################
+###   # Priors
+###   alpha[1] <- 0; beta[1] <- 0
+###   for (p in 2:P) {
+###      alpha[p] ~ dnorm(0,tau.alpha)
+###      beta[p] ~ dnorm(0,tau.beta)
+###   }
+###   tau.alpha <- pow(0.2,-2);    tau.beta <- pow(0.2,-2)
+########################################################################################################################
+   # Priors: includes substantive background on the relative performance of the parties based on the last few elections
+   # The following formulation considers phi.hat[p] as the overall relative performance of party p vs Conservatives
+   # and then makes sure that on average (across Leavers & Remainers) this is respected (in the prior!) by constraining
+   # the parameters alpha[p] and beta[p]
+   alpha[1] <- 0; beta[1] <- 0
+   for (p in 2:P) {
+      alpha[p] ~ dnorm(mu.alpha[p],tau.alpha[p])
+      beta[p] ~ dnorm(mu.beta[p],tau.beta[p])
+   }
+
+   # Simulates the election by estimating the constituency specific probabilities and then 
+   # rescaling them by modelling them using a Dirichlet based on those scales
+   for(c in 1:C) {
+      for (p in 1:P) {
+         pi17[c,p] <- ((vote[c,p]*rho[1,p])*(1-prem[c]) + (vote[c,p]*rho[2,p])*prem[c])
+      }
+      ###vote17[c,1:P] ~ ddirch(100*pi17[c,])
+   }
+}
